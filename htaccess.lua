@@ -1,7 +1,8 @@
 -- htaccess for nginx
--- Copyright (c) 2017-2020 by Roadfamily LLC
--- Compilation: luajit -b htaccess.lua htaccess-bytecode.lua
 -- Version: 1.2.1
+-- Copyright (c) 2017-2021 by Gerald Schittenhelm, Roadfamily LLC
+-- MIT License
+-- Compilation: luajit -b htaccess.lua htaccess-bytecode.lua
 
 -- TODO: Sometimes code is executed 4 times for each request due to the way nginx handles requests. Make sure it is cached accordingly.
 
