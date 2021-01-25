@@ -3,7 +3,7 @@
 -- Compilation: luajit -b htaccess.lua htaccess-bytecode.lua
 -- Version: 1.2.1
 
--- TODO: Sometimes code is executed 4 (!) times for each request. Investigate and SOLVE THIS SHIT.
+-- TODO: Sometimes code is executed 4 times for each request due to the way nginx handles requests. Make sure it is cached accordingly.
 
 -- Error function, returns HTTP 500 and logs an error message
 local fail = function(msg)
@@ -12,45 +12,6 @@ local fail = function(msg)
 	end
 	ngx.exit(500)
 end
-
--- local log = function(msg) -- TODO: Remove this function!
--- 	if type(msg) == 'nil' then
--- 		ngx.log(ngx.ERR, '(nil)')
--- 	elseif type(msg) == 'string' then
--- 		ngx.log(ngx.ERR, msg)
--- 	elseif type(msg) == 'number' then
--- 		msg = tostring(msg)
--- 	elseif type(msg) == 'table' then
--- 		ngx.log(ngx.ERR, '(table)')
--- 		for key, val in pairs(msg) do
--- 			if type(val) == 'nil' then
--- 				val = '(nil)'
--- 			elseif type(val) == 'boolean' then
--- 				if val then
--- 					val = 'true'
--- 				else
--- 					val = 'false'
--- 				end
--- 			elseif type(val) == 'table' then
--- 				val = '(table)'
--- 			end
--- 			ngx.log(ngx.ERR, '> ['..key..'] > '..val)
--- 		end
--- 		return
--- 	elseif type(msg) == 'boolean' then
--- 		if msg then
--- 			msg = '(true)'
--- 		else
--- 			msg = '(false)'
--- 		end
--- 	else
--- 		msg = type(msg)
--- 	end
--- 	ngx.log(ngx.ERR, msg)
--- end
-
--- Define error string used for security violation errors
-local C_SECURITY_VIOLATION_ERROR = 'Security violation'
 
 -- Halts the script execution
 local die = function()
@@ -88,44 +49,6 @@ local cache_set = function(key, value, expiry_sec)
 	return cache_dict:set(key, value, expiry_sec)
 end
 
-local cached_nreq = cache_get('__NREQ__') -- number of requests in total since server start
-if not cached_nreq then
-	cached_nreq = 0
-end
-
-local lc_cache_name = decode_base64('X19MSUNFTlNFX18=')
-local lc_ok_header = decode_base64('WC1MaWNlbnNlOiBPSw==')
-
--- Check license
-local check_lc = function()
-	local cached_lc = cache_dict:get_stale(lc_cache_name) -- cached license check results
-	if cached_lc == 1 then
-		return true
-	elseif cached_lc == 9 then
-		return false
-	end
-	-- ask license server for valid license
-	local curl = io.popen(decode_base64('Y3VybCAtcyAtSSBodHRwczovL2h0YWNjZXNzLWZvci1uZ2lueC5jb20vbGljZW5zZS1jaGVjay8='))
-		-- -s ... silent (no stdout output)
-		-- -I ... fetch headers only
-	if curl == nil then
-		fail(decode_base64('TElDRU5TRSBFUlJPUjogQ291bGQgbm90IHBlcmZvcm0gY1VSTCByZXF1ZXN0'))
-	end
-	local curl_headers = curl:read('*all')
-	curl:close()
-	if string.find(curl_headers, lc_ok_header) then
-		cache_dict:set(lc_cache_name, 1, 0)
-		return true
-	end
-	cache_dict:set(lc_cache_name, 9, 0)
-	return false
-end
-
--- check number of requests. if more than n requests (free) check license
-if cached_nreq > 100 and not check_lc() then
-	fail(decode_base64('TElDRU5TRSBFUlJPUjogTm8gdmFsaWQgbGljZW5zZSBmb3VuZA=='))
-end
-
 -- Define request status values
 local C_STATUS_SUBREQUEST = 1
 local C_STATUS_VOID = 9
@@ -148,7 +71,6 @@ if request_status then
 else
 	is_subrequest = false
 	cache_set(trace_id, C_STATUS_SUBREQUEST) -- Write subrequest status to cache for any following subrequest
-	cache_dict:set('__NREQ__', cached_nreq+1, 0)
 end
 
 -- The original requested URI including query string
