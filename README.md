@@ -267,8 +267,8 @@ mod_usertrack	|	`CookieTracking`	|	No	|
 
 Variables not listed below are not supported.
 
-| Variable | Supported | Notes |
-| ------ | --------- | --------- | ----- |
+| Variable | Supported | Notes     |
+| -------- | --------- | --------- |
 `HTTP_*`	|	Yes | all standard and non-standard HTTP header fields are supported
 `HTTPS`	|	Yes
 `DOCUMENT_ROOT`	|	Yes
