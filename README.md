@@ -19,7 +19,7 @@
 When using nginx, there are many **legitimate reasons** to support `.htaccess` files.
 
 *   **Mixed technology.** Imagine using NodeJS and PHP side by side, running on one stable nginx webserver. When dealing with customer webspace, using Apache and nginx together (one proxying the other) is possible, however this adds unnecessary layers of redundancy and heavily wastes valuable server resources.
-*   **Ease of use.** Everybody knows how to use `.htaccess` files. As pf January 2020, [more than 24% of all active websites](https://web.archive.org/web/20200130141042/https://news.netcraft.com/archives/2020/01/21/january-2020-web-server-survey.html) are still run on Apache and thus capable of utilizing `.htaccess` files. If nginx had a way to support this feature, this number would be going down significantly, making the web faster.
+*   **Ease of use.** Everybody knows how to use `.htaccess` files. As of January 2020, [more than 24% of all active websites](https://web.archive.org/web/20200130141042/https://news.netcraft.com/archives/2020/01/21/january-2020-web-server-survey.html) are still run on Apache and thus capable of utilizing `.htaccess` files. If nginx had a way to support this feature, this number would be going down significantly, making the web faster.
 *   **Legacy.** Just use your old code, without worrying if someone could access a protected directory inside any library you just forgot to handle in your nginx config.
 *   **Plug and play.** No need to convert `.htaccess` files for nginx and fix all the errors, rant about unsupported or oddly mixed up auto-generated config goo coming from a random online converter.
 *   **Justified.** Apache performs multiple file reads anyway, so .htaccess for nginx cannot make it worse than Apache, right? In fact, with our built-in micro caching mechanism both, CPU and I/O load are reduced drastically compared to Apache's implementation.
@@ -47,7 +47,7 @@ Physical memory usage of this plugin is insanely low, under 10 KB for each nginx
 1. Install nginx (with the [Lua module](https://github.com/openresty/lua-nginx-module) if you don't already have it) and luajit.
     1. Debian: `apt-get install nginx luajit`
     1. Fedora: `yum install nginx luajit`
-1. uild and install the plugin into an appropriate directory accessible by the nginx process, e.g., 
+1. Build and install the plugin into an appropriate directory accessible by the nginx process, e.g., 
     ```bash
     luajit -b htaccess.lua /etc/nginx/lua/htaccess.lbc
     ```
