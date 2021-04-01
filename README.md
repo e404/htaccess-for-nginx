@@ -2,28 +2,28 @@
 
 **.htaccess for nginx** enables the [nginx](https://nginx.org/en/) high performance webserver to deal with `.htaccess` files.
 
-`.htaccess` files are mainly used for access control and URL rewrite instructions and are widely known across the web community. Originally designed for [Apache](https://www.apache.org/), there is no native implementation available for nginx.  While there is a [legitimate reason for this](https://www.nginx.com/resources/wiki/start/topics/examples/likeapache-htaccess/), there would be huge practical benefit if nginx was able to support this.
+`.htaccess` files are mainly used for access control and URL rewrite instructions and are widely known across the web community. Originally designed for [Apache](https://www.apache.org/), there is no native implementation available for nginx. While there is a [legitimate reason for this](https://www.nginx.com/resources/wiki/start/topics/examples/likeapache-htaccess/), there would be huge practical benefit if nginx was able to support this.
 
 **.htaccess for nginx** is efficient and elegant, using micro caching and various performance tweaks right out of the box. It is effortless in its installation and usage. The plugin's deeply integrated approach is ideal for webhosters, who are looking for mixed technology solutions using only nginx and nothing else.
 
 ## Stop using Apache
 
-*   Apache is slow.
-*   Apache is wasting resources.
-*   Compared to nginx, Apache is poorly and inconsistently designed.
-*   Apache's monolithic design prevents it from scaling properly, while nginx is capable of handling tens of thousands of simultaneous connections with ease.
-*   Switching to nginx heavily improves performance, efficiency and security.
+* Apache is slow.
+* Apache is wasting resources.
+* Compared to nginx, Apache is poorly and inconsistently designed.
+* Apache's monolithic design prevents it from scaling properly, while nginx is capable of handling tens of thousands of simultaneous connections with ease.
+* Switching to nginx heavily improves performance, efficiency and security.
 
 ## Reasons for .htaccess in nginx
 
 When using nginx, there are many **legitimate reasons** to support `.htaccess` files.
 
-*   **Mixed technology.** Imagine using NodeJS and PHP side by side, running on one stable nginx webserver. When dealing with customer webspace, using Apache and nginx together (one proxying the other) is possible, however this adds unnecessary layers of redundancy and heavily wastes valuable server resources.
-*   **Ease of use.** Everybody knows how to use `.htaccess` files. As of January 2020, [more than 24% of all active websites](https://web.archive.org/web/20200130141042/https://news.netcraft.com/archives/2020/01/21/january-2020-web-server-survey.html) are still run on Apache and thus capable of utilizing `.htaccess` files. If nginx had a way to support this feature, this number would be going down significantly, making the web faster.
-*   **Legacy.** Just use your old code, without worrying if someone could access a protected directory inside any library you just forgot to handle in your nginx config.
-*   **Plug and play.** No need to convert `.htaccess` files for nginx and fix all the errors, rant about unsupported or oddly mixed up auto-generated config goo coming from a random online converter.
-*   **Justified.** Apache performs multiple file reads anyway, so .htaccess for nginx cannot make it worse than Apache, right? In fact, with our built-in micro caching mechanism both, CPU and I/O load are reduced drastically compared to Apache's implementation.
-*   **For webhosters.** Today, webhosters still need to provide an interface for their customers to change certain aspects of their webserver's behaviour. The decades long and proven `.htaccess` file does just that.
+* **Mixed technology.** Imagine using NodeJS and PHP side by side, running on one stable nginx webserver. When dealing with customer webspace, using Apache and nginx together (one proxying the other) is possible, however this adds unnecessary layers of redundancy and heavily wastes valuable server resources.
+* **Ease of use.** Everybody knows how to use `.htaccess` files. As of January 2020, [more than 24% of all active websites](https://web.archive.org/web/20200130141042/https://news.netcraft.com/archives/2020/01/21/january-2020-web-server-survey.html) are still run on Apache and thus capable of utilizing `.htaccess` files. If nginx had a way to support this feature, this number would be going down significantly, making the web faster.
+* **Legacy.** Just use your old code, without worrying if someone could access a protected directory inside any library you just forgot to handle in your nginx config.
+* **Plug and play.** No need to convert `.htaccess` files for nginx and fix all the errors, rant about unsupported or oddly mixed up auto-generated config goo coming from a random online converter.
+* **Justified.** Apache performs multiple file reads anyway, so .htaccess for nginx cannot make it worse than Apache, right? In fact, with our built-in micro caching mechanism both, CPU and I/O load are reduced drastically compared to Apache's implementation.
+* **For webhosters.** Today, webhosters still need to provide an interface for their customers to change certain aspects of their webserver's behaviour. The decades long and proven `.htaccess` file does just that.
 
 
 ## Performance
@@ -35,23 +35,23 @@ Physical memory usage of this plugin is insanely low, under 10 KB for each nginx
 
 ## Requirements
 
-*   Debian or Fedora environment
-*   `nginx` v1.19+ with Lua module
-*   `curl` command-line tool
-*   Optional: `htpasswd` utility (`apache2-utils` package) for `.htpasswd` hashing functions (required for Basic HTTP Authentication)
-*   Optional: `getent` utility (`libc-bin` package) for hostname lookups (e.g. `Deny from _domainname.tld_`)
+* Debian or Fedora environment
+* `nginx` v1.19+ with Lua module
+* `curl` command-line tool
+* Optional: `htpasswd` utility (`apache2-utils` package) for `.htpasswd` hashing functions (required for Basic HTTP Authentication)
+* Optional: `getent` utility (`libc-bin` package) for hostname lookups (e.g. `Deny from _domainname.tld_`)
 
 
 ## Installation
 
 1. Install nginx (with the [Lua module](https://github.com/openresty/lua-nginx-module) if you don't already have it) and luajit.
     1. Debian: `apt-get install nginx luajit`
-    1. Fedora: `yum install nginx luajit`
-1. Build and install the plugin into an appropriate directory accessible by the nginx process, e.g., 
+    2. Fedora: `yum install nginx luajit`
+2. Build and install the plugin into an appropriate directory accessible by the nginx process, e.g., 
     ```bash
     luajit -b htaccess.lua /etc/nginx/lua/htaccess.lbc
     ```
-1. Add the following configuration to the nginx `http {}` context:
+3. Add the following configuration to the nginx `http {}` context:
     ```nginx
     http {
         ...
@@ -60,7 +60,7 @@ Physical memory usage of this plugin is insanely low, under 10 KB for each nginx
     }
     ```
     This represents a caching system, used on a short-term per-request basis. `.htaccess` lines are usually cached as values for less than 100 milliseconds, but kept in memory as long as there are active connections. You can choose to assign any other memory amount to it, although 16 MB should be more than enough.
-1. Configure the nginx `server {}` context(s) to use the plugin:
+4. Configure the nginx `server {}` context(s) to use the plugin:
     ```nginx
     server {
         ...
@@ -300,9 +300,9 @@ Variables not listed below are not supported.
 
 ## Tips
 
-*   This plugin tries to make things as secure as possible. **Wherever an unclear situation occurs, access will be denied** to prevent unintended access, e.g. if unsupported, security-critical directives are being used (HTTP 500 response). Unsupported, non-security-related directives will be ignored.
-*   Global configuration within your `http {}` context is technically possible. However, you are encouraged to use this plugin only in the `server {}` contexts that will need it.
-*   To make your life easier, you can create a config snippet and include it in the `server {}` config:
+* This plugin tries to make things as secure as possible. **Wherever an unclear situation occurs, access will be denied** to prevent unintended access, e.g. if unsupported, security-critical directives are being used (HTTP 500 response). Unsupported, non-security-related directives will be ignored.
+* Global configuration within your `http {}` context is technically possible. However, you are encouraged to use this plugin only in the `server {}` contexts that will need it.
+* To make your life easier, you can create a config snippet and include it in the `server {}` config:
     ```nginx
     server {
         ...
