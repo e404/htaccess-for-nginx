@@ -310,12 +310,3 @@ Variables not listed below are not supported.
         ...
     }
     ```
-
-* * *
-
-_Roadfamily LLC  
-412 N Main St 100  
-Buffalo, WY 82834  
-USA_
-
-[**📱 24/7 Support** via WhatsApp: +60-13-8675656](https://wa.me/60138675656)
