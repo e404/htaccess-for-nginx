@@ -813,6 +813,8 @@ local current_dir
 local stat_instructions_used = {}
 local stat_blocks_used = {}
 for statement in htaccess:gmatch('[^\r\n]+') do
+	-- Trim leading whitespace
+	statement = statement:gsub("^%s*", "");
 	if statement:sub(1,1) == '<' then
 		-- handle blocks
 		if statement:sub(2,2) ~= '/' then
