@@ -231,7 +231,7 @@ mod_negotiation	|	`ForceLanguagePriority`	|	No	|
 mod_negotiation	|	`LanguagePriority`	|	No	|	
 mod_reflector	|	`*`	|	Never	|	Security reasons
 mod_rewrite	|	`RewriteBase`	|	Yes	|	
-mod_rewrite	|	`RewriteCond`	|	Yes	|	
+mod_rewrite	|	`RewriteCond`	|	Partial	|	Environment (E=) flag is unsupported
 mod_rewrite	|	`RewriteEngine`	|	Yes	|	
 mod_rewrite	|	`RewriteOptions`	|	No	|	
 mod_rewrite	|	`RewriteRule`	|	Yes	|	

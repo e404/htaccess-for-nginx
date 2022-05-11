@@ -1222,6 +1222,10 @@ if get_cdir('rewrite') and #parsed_rewriterules > 0 then
 						else
 							fail('Invalid flag value: ['..rawflag..'], expecting a number')
 						end
+					elseif flag == 'e' then -- [E=]
+						-- Trying to set or unset an environment variable
+						-- https://httpd.apache.org/docs/2.4/rewrite/flags.html
+						fail('RewriteRule flag E is unsupported')
 					else
 						fail('Unsupported RewriteRule flag: '..flag)
 					end
