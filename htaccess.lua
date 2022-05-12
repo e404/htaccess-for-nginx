@@ -815,7 +815,10 @@ local stat_blocks_used = {}
 for statement in htaccess:gmatch('[^\r\n]+') do
 	-- Trim leading whitespace
 	statement = statement:gsub("^%s*", "");
-	if statement:sub(1,1) == '<' then
+
+	if statement:sub(1,1) == '#' then
+		-- Comment, so ignore it
+	elseif statement:sub(1,1) == '<' then
 		-- handle blocks
 		if statement:sub(2,2) ~= '/' then
 			-- opening tag <...>
@@ -989,6 +992,7 @@ for statement in htaccess:gmatch('[^\r\n]+') do
 				pop_ctx()
 			end
 		end
+
 	else
 		local instruction = statement:match('^[^%s]+')
 		if instruction then
@@ -1209,11 +1213,9 @@ if get_cdir('rewrite') and #parsed_rewriterules > 0 then
 					elseif flag == 'qsa' or flag == 'qsappend' then -- [QSA]
 						local qs = relative_uri:match('%?.*')
 						if qs then
-							local new_qs = dst:match('%?.*')
+							local new_qs = dst:match('%?.*')					
 							if new_qs then
 								dst = dst:gsub('%?.*', '', 1)..qs..'&'..new_qs:sub(2)
-							else
-								dst = dst..new_qs
 							end
 						end
 					elseif flag == 'qsd' or flag == 'qsdiscard' then -- [QSD]
