@@ -748,13 +748,13 @@ local replace_server_vars = function(str, track_used_headers)
 		if first_five == 'http_' then -- %{HTTC_*}, e.g. %{HTTC_HOST}
 			replace = ngx.var[svar] or ''
 			if track_used_headers then
-				table.insert(used_headers, svar:sub(6):gsub('_', '-'):lower())
+				table.insert(used_headers, (svar:sub(6):gsub('_', '-'):lower()))
 			end
 		elseif first_five == 'http:' then -- %{HTTP:*}, e.g. %{HTTP:Content-Type}
 			svar = svar:sub(6):gsub('-','_'):lower()
 			replace = ngx.var['http_'..svar] or ''
 			if track_used_headers then
-				table.insert(used_headers, svar:gsub('_', '-'))
+				table.insert(used_headers, (svar:gsub('_', '-')))
 			end
 		elseif first_five == 'time_' then -- %{TIME_*}, e.g. %{TIME_YEAR}
 			svar = svar:sub(6)
