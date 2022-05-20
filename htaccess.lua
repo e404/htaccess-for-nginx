@@ -748,13 +748,13 @@ local replace_server_vars = function(str, track_used_headers)
 		if first_five == 'http_' then -- %{HTTC_*}, e.g. %{HTTC_HOST}
 			replace = ngx.var[svar] or ''
 			if track_used_headers then
-				table.insert(used_headers, svar:sub(6):gsub('_', '-'):lower())
+				table.insert(used_headers, (svar:sub(6):gsub('_', '-'):lower()))
 			end
 		elseif first_five == 'http:' then -- %{HTTP:*}, e.g. %{HTTP:Content-Type}
 			svar = svar:sub(6):gsub('-','_'):lower()
 			replace = ngx.var['http_'..svar] or ''
 			if track_used_headers then
-				table.insert(used_headers, svar:gsub('_', '-'))
+				table.insert(used_headers, (svar:gsub('_', '-')))
 			end
 		elseif first_five == 'time_' then -- %{TIME_*}, e.g. %{TIME_YEAR}
 			svar = svar:sub(6)
@@ -813,7 +813,12 @@ local current_dir
 local stat_instructions_used = {}
 local stat_blocks_used = {}
 for statement in htaccess:gmatch('[^\r\n]+') do
-	if statement:sub(1,1) == '<' then
+	-- Trim leading whitespace
+	statement = statement:gsub("^%s*", "");
+
+	if statement:sub(1,1) == '#' then
+		-- Comment, so ignore it
+	elseif statement:sub(1,1) == '<' then
 		-- handle blocks
 		if statement:sub(2,2) ~= '/' then
 			-- opening tag <...>
@@ -987,6 +992,7 @@ for statement in htaccess:gmatch('[^\r\n]+') do
 				pop_ctx()
 			end
 		end
+
 	else
 		local instruction = statement:match('^[^%s]+')
 		if instruction then
@@ -1207,11 +1213,9 @@ if get_cdir('rewrite') and #parsed_rewriterules > 0 then
 					elseif flag == 'qsa' or flag == 'qsappend' then -- [QSA]
 						local qs = relative_uri:match('%?.*')
 						if qs then
-							local new_qs = dst:match('%?.*')
+							local new_qs = dst:match('%?.*')					
 							if new_qs then
 								dst = dst:gsub('%?.*', '', 1)..qs..'&'..new_qs:sub(2)
-							else
-								dst = dst..new_qs
 							end
 						end
 					elseif flag == 'qsd' or flag == 'qsdiscard' then -- [QSD]
@@ -1222,6 +1226,10 @@ if get_cdir('rewrite') and #parsed_rewriterules > 0 then
 						else
 							fail('Invalid flag value: ['..rawflag..'], expecting a number')
 						end
+					elseif flag == 'e' then -- [E=]
+						-- Trying to set or unset an environment variable
+						-- https://httpd.apache.org/docs/2.4/rewrite/flags.html
+						fail('RewriteRule flag E is unsupported')
 					else
 						fail('Unsupported RewriteRule flag: '..flag)
 					end
