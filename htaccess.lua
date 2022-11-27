@@ -82,12 +82,9 @@ if org_request_uri:len() > org_request_uri_path:len() then
 else
 	org_request_uri = unescape_uri(org_request_uri_path)
 end
--- The actual requested URI including query string
-local request_uri_noqs = ngx.var.uri
+
+-- The actual requested URI, not including query string
 local request_uri = ngx.var.uri
-if ngx.var.query_string then
-	request_uri = request_uri..'?'..ngx.var.query_string
-end
 
 -- Backup subrequest detection, in case shared storage failed
 if request_uri ~= org_request_uri then
@@ -714,7 +711,7 @@ local parse_htaccess_directive = function(instruction, params_cs, current_dir)
 	elseif instruction == 'acceptpathinfo' then
 		if params == 'on' then
 			-- TODO
-		elseif params == 'off' and request_uri_noqs ~= request_relative_filepath then
+		elseif params == 'off' and request_uri ~= request_relative_filepath then
 			ngx.exit(404)
 		end
 	end
@@ -738,7 +735,6 @@ local replace_server_vars = function(str, track_used_headers)
 		['remote_port'] = true,      -- %{REMOTE_PORT}
 		['request_method'] = true,   -- %{REQUEST_METHOD}
 		['request_filename'] = true, -- %{REQUEST_FILENAME}
-		['request_uri'] = true,      -- %{REQUEST_URI}
 		['query_string'] = true      -- %{QUERY_STRING}
 	}
 	for org_svar in str:gmatch('%%{([^}]+)}') do
@@ -775,6 +771,9 @@ local replace_server_vars = function(str, track_used_headers)
 			end
 		elseif whitelist[svar] then
 			replace = ngx.var[svar]
+		elseif svar == 'request_uri' then -- %{REQUEST_URI}
+			-- Use ngx.var['uri'] to match the Apache convention since it doesn't contain the query string
+			replace = ngx.var['uri']
 		elseif svar == 'script_filename' then -- %{SCRIPT_FILENAME}
 			replace = ngx.var['fastcgi_script_name']
 			if not replace or replace == '' then
