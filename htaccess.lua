@@ -217,7 +217,7 @@ if not htaccess then
 				fail(C_SECURITY_VIOLATION_ERROR)
 			end
 			local relative_dir = last_htaccess_dir:sub(rootpath:len()+1)
-			htaccess = C_DIR..' '..relative_dir..'\n'..htaccess..current_htaccess
+			htaccess = C_DIR..' '..relative_dir..'\n'..htaccess..current_htaccess..'\n'
 		end
 	end
 	read_htaccess() -- process file in root directory first
