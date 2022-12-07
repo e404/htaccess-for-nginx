@@ -44,9 +44,9 @@ Physical memory usage of this plugin is insanely low, under 10 KB for each nginx
 
 ## Installation
 
-1. Install nginx (with the [Lua module](https://github.com/openresty/lua-nginx-module) if you don't already have it) and luajit.
-    1. Debian: `apt-get install nginx luajit`
-    2. Fedora: `yum install nginx luajit`
+1. Install nginx *with the [Lua module](https://github.com/openresty/lua-nginx-module)* `libnginx-mod-http-lua` and `luajit`.
+    1. Debian: `apt-get install nginx libnginx-mod-http-lua luajit`
+    2. Fedora: `yum install nginx libnginx-mod-http-lua luajit`
 2. Build and install the plugin into an appropriate directory accessible by the nginx process, e.g., 
     ```bash
     luajit -b htaccess.lua /etc/nginx/lua/htaccess.lbc
