@@ -1210,7 +1210,7 @@ if get_cdir('rewrite') and #parsed_rewriterules > 0 then
 							redirect = 302
 						end
 					elseif flag == 'qsa' or flag == 'qsappend' then -- [QSA]
-						local qs = relative_uri:match('%?.*')
+						local qs = org_request_uri:match('%?.*')
 						if qs then
 							local new_qs = dst:match('%?.*')					
 							if new_qs then
@@ -1218,7 +1218,7 @@ if get_cdir('rewrite') and #parsed_rewriterules > 0 then
 							end
 						end
 					elseif flag == 'qsd' or flag == 'qsdiscard' then -- [QSD]
-						relative_uri = relative_uri:gsub('%?.*', '', 1)
+						-- No-op, since relative_uri doesn't contain the query string anyway
 					elseif flag == 's' or flag == 'skip' then -- [S=n]
 						if flag_value:match('^[0-9]+$') then
 							skip = flag_value
