@@ -1095,8 +1095,22 @@ if get_cdir('rewrite') and #parsed_rewriterules > 0 then
 					else
 						fail('RewriteCond pattern unsupported: '..cond_pattern)
 					end
-				elseif cond_pattern:match('^[<>=]') then -- Lexicographical comparisons
-					fail('RewriteCond lexicographical string comparisons are unsupported: '..cond_pattern)
+				elseif cond_pattern:match('^[<>=]') then -- Lexicographical string comparisons
+					local comparison_operator = cond_pattern:match('^([=<>]+)');
+					local expression_to_compare = cond_pattern:gsub('^([=<>]+)', '');
+					if (comparison_operator == '=') then
+						cond_matches = cond_test == expression_to_compare
+					elseif (comparison_operator == '<') then
+						cond_matches = cond_test < expression_to_compare
+					elseif (comparison_operator == '>') then
+						cond_matches = cond_test > expression_to_compare
+					elseif (comparison_operator == '<=') then
+						cond_matches = cond_test <= expression_to_compare
+					elseif (comparison_operator == '>=') then
+						cond_matches = cond_test >= expression_to_compare
+					else
+						fail('RewriteCond lexicographical string pattern unsupported: '..cond_pattern)
+					end
 				else
 					cond_matches = ngx.re.match(cond_test, cond_pattern, regex_options)
 				end
