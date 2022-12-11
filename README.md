@@ -231,7 +231,7 @@ mod_negotiation	|	`ForceLanguagePriority`	|	No	|
 mod_negotiation	|	`LanguagePriority`	|	No	|	
 mod_reflector	|	`*`	|	Never	|	Security reasons
 mod_rewrite	|	`RewriteBase`	|	Yes	|	
-mod_rewrite	|	`RewriteCond`	|	Partial	|	Environment (E=) flag is unsupported
+mod_rewrite	|	`RewriteCond`	|	Partial	|	Environment (E=) flag is unsupported, as are *CondPattern* integer comparisons and some file attribute tests listed in the [documentation](https://httpd.apache.org/docs/2.4/mod/mod_rewrite.html)
 mod_rewrite	|	`RewriteEngine`	|	Yes	|	
 mod_rewrite	|	`RewriteOptions`	|	No	|	
 mod_rewrite	|	`RewriteRule`	|	Yes	|	
