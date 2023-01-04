@@ -6,6 +6,19 @@
 
 -- TODO: Sometimes code is executed 4 times for each request due to the way nginx handles requests. Make sure it is cached accordingly.
 
+-- Uncomment the following to enable remote debugging
+-- Note that if the container volume path contains dashes, they will need to be escaped - e.g., /path/to/htaccess%-for%-nginx
+-- _G.emmy = {}
+-- _G.emmy.fixPath = function(path)
+-- 	return path:gsub('/docker/', 'C:/path/to/project/on/windows')
+-- end
+
+-- package.cpath = package.cpath .. ';/usr/local/emmy/?.so'
+-- local dbg = require('emmy_core')
+-- dbg.tcpListen('localhost', 9966)
+-- dbg.waitIDE()
+-- dbg.breakHere()
+
 -- Error function, returns HTTP 500 and logs an error message
 local fail = function(msg)
 	if msg then

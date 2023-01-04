@@ -44,6 +44,27 @@ Physical memory usage of this plugin is insanely low, under 10 KB for each nginx
 
 ## Installation
 
+### Docker container
+
+A Docker container is included as a reference; simply start it via `docker compose up -d`.
+
+If you navigate to http://localhost it will process the sample `web/.htaccess`, which has a RewriteRule mapping http://localhost/go/ to http://localhost/redirect.html.
+
+
+#### Remote debugging
+
+Using IntelliJ IDEA, you can remotely debug Lua scripts running in an nginx Docker container, using [these steps](https://dev.to/omervk/debugging-lua-inside-openresty-inside-docker-with-intellij-idea-2h95).  In particular, this has been tested on a Windows 10 host running IntelliJ IDEA 2022.2.4 (Community Edition).
+
+It assumes you are mapping a host path of `C:\path\to\project\on\windows` to a path in the container volume of `/docker`.
+
+1. Install [IntelliJ IDEA](https://www.jetbrains.com/idea/download/#section=windows)
+1. At the top of `htaccess.lua`, uncomment the debugging block and update the Windows path mapping.
+1. In IDEA, create a Run/Debug configuration per the link above and then start the debugger
+
+When you request a URL that triggers the Lua script, it will pause on the `dbg.breakHere()` line so you can step through the code, watch variables, etc.
+
+### Manual installation
+
 1. Install nginx with the [Lua module](https://github.com/openresty/lua-nginx-module) `libnginx-mod-http-lua` and the `luajit` package.
     1. Debian: `apt-get install nginx libnginx-mod-http-lua luajit`
     2. Fedora: `yum install nginx libnginx-mod-http-lua luajit`
@@ -67,6 +88,9 @@ Physical memory usage of this plugin is insanely low, under 10 KB for each nginx
     http {
         ...
         lua_shared_dict htaccess 16m;
+
+        # This is useful for debugging but may cause performance problems
+        # lua_code_cache off;
         ...
     }
     ```
@@ -321,64 +345,3 @@ Variables not listed below are not supported.
         ...
     }
     ```
-
-
-## Debugging Lua inside a Docker container
-
-Using IntelliJ IDEA, you can remotely debug Lua scripts like `htaccess.lua` running in an nginx Docker container, using [these steps](https://dev.to/omervk/debugging-lua-inside-openresty-inside-docker-with-intellij-idea-2h95).  In particular, this has been tested on a Windows 10 host running IntelliJ IDEA 2022.2.4 (Community Edition), with the `fabiocicerchia/nginx-lua:1.23.2-almalinux8.7-20221201` Docker image from https://hub.docker.com/r/fabiocicerchia/nginx-lua.  
-
-It assumes you are mapping a host path of `C:\path\to\project\on\windows` to a path in the container volume of `/path/to/project`.
-
-1. Install [IntelliJ IDEA](https://www.jetbrains.com/idea/download/#section=windows)
-1. The container needs to forward port 9966 to allow for Lua debugging.  If you are using `docker-compose.yml` it will look something like this:
-    ```yml
-    version: '2.4'
-    services:
-    nginx-lua:
-        build:
-            context: .
-        container_name: nginx-lua
-        ports:
-        # For nginx requests over HTTP
-        - 80:80
-        # If you support nginx requests over HTTPS
-        - 443:443
-        # For Lua debugging
-        - 9966:9966
-        volumes:
-        - ./relative/path/to/project/on/windows/:/path/to/project/
-    ```
-1. In the `Dockerfile` for the container, run the following command to build the EmmyLuaDebugger from source:
-    ```bash 
-    RUN dnf install -y cmake && \
-        curl https://github.com/EmmyLua/EmmyLuaDebugger/archive/refs/tags/1.0.16.tar.gz \
-            -L -o EmmyLuaDebugger-1.0.16.tar.gz && \
-        tar -xzvf EmmyLuaDebugger-1.0.16.tar.gz && \
-        cd EmmyLuaDebugger-1.0.16 && \
-            mkdir -p build && \
-            cd build && \
-                cmake -DCMAKE_BUILD_TYPE=Release ../ && \
-                make install && \
-                mkdir -p /usr/local/emmy && \
-                cp install/bin/emmy_core.so /usr/local/emmy/ && \
-            cd .. && \
-        cd .. && \
-        rm -rf EmmyLuaDebugger-1.0.16 EmmyLuaDebugger-1.0.16.tar.gz
-    ```
-1. Start the container
-1. At the top of your Lua script to debug, add the following:
-    ```lua
-    _G.emmy = {}
-    _G.emmy.fixPath = function(path)
-        return string.gsub(path, '/path/to/project/', 'C:/path/to/project/on/windows')
-    end
-
-    package.cpath = package.cpath .. ';/usr/local/emmy/?.so'
-    local dbg = require('emmy_core')
-    dbg.tcpListen('localhost', 9966)
-    dbg.waitIDE()
-    dbg.breakHere()
-    ```
-1. In IDEA, create a Run/Debug configuration per the link and then start the debugger
-
-When you request a URL that triggers the Lua script, it will pause on the `dbg.breakHere()` line so you can step through the code, watch variables, etc.

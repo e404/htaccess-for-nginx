@@ -1,0 +1,14 @@
+version: '2.4'
+services:
+  nginx-lua:
+    build:
+      context: .
+    ports:
+    # For nginx requests over HTTP
+    - 80:80
+    # For Lua debugging
+    - 9966:9966
+    volumes:
+    - ./:/docker/
+    # Edit for your environment
+    #- ./relative/path/to/project/on/windows/:/path/to/project/

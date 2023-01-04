@@ -1,0 +1,7 @@
+# This is a sample .htaccess file
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /
+RewriteRule ^go /redirect.html [L]
+</IfModule>
