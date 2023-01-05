@@ -2,6 +2,25 @@
 
 FROM fabiocicerchia/nginx-lua:1.23.2-almalinux8.7-20221201
 
+# The luajit package expects Lua 5.1, but this container has 5.3 so remove that.  
+# Then build Lua 5.1 and luarocks from source so you can install the luafilesystem module
+RUN dnf remove -y lua \
+    && dnf install -y cmake luajit readline-devel \
+    && cd /tmp \
+        && curl https://www.lua.org/ftp/lua-5.1.5.tar.gz -L -o lua-5.1.5.tar.gz \
+        && tar -zxvf lua-5.1.5.tar.gz \
+        && cd lua-5.1.5 \
+            && CFLAGS=-DLUA_USE_LINUX make linux \
+            && make install \
+            && cd .. \
+        && curl https://luarocks.org/releases/luarocks-3.8.0.tar.gz -L -o luarocks-3.8.0.tar.gz \
+        && tar -zxvf luarocks-3.8.0.tar.gz \
+        && cd luarocks-3.8.0 \
+            && ./configure --with-lua-include=/usr/local/include \
+            && make install \
+            && cd .. \
+    && luarocks install luafilesystem
+    
 # Build the EmmyLuaDebugger from source for debugging Lua via IntelliJ IDEA
 RUN curl https://github.com/EmmyLua/EmmyLuaDebugger/archive/refs/tags/1.0.16.tar.gz \
          -L -o EmmyLuaDebugger-1.0.16.tar.gz && \

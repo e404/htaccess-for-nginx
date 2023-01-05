@@ -150,6 +150,27 @@ local path_exists = function(filepath, soft_fail)
 	return ok
 end
 
+-- Get the type of a file system object
+-- @param filepath .... the filename
+-- @return file_type .. One of (directory|link|file), or nil if the path is invalid
+local get_file_type = function(filepath)
+	local lfs = require "lfs"
+	local file_type = nil
+	if (lfs.symlinkattributes (filepath) ~= nil) then
+		local attr = lfs.symlinkattributes (filepath);
+		assert (type(attr) == "table")
+		if attr.mode == "directory" then
+			file_type = 'directory'
+		elseif attr['target'] ~= nil then
+			-- print ("*** symlink found   "..attr['target'])
+			file_type = 'link'
+		else
+			file_type = 'file'
+		end
+	end
+	return file_type
+end
+
 -- Read contents of any file
 local get_file_contents = function(name)
 	ensure_doc_root(name) -- Security: enforce document root
@@ -1101,10 +1122,16 @@ if get_cdir('rewrite') and #parsed_rewriterules > 0 then
 					fail('RewriteCond expressions ("expr ...") are unsupported') -- We don't support expr style conditions due to their weird complexity and redundancy
 				elseif cond_pattern:sub(1,1) == '-' then -- File attribute tests or integer comparisons (case sensitive)
 					local filepath = cond_test:gsub('/$','',1)
+					local file_type = get_file_type(filepath)
+
+					cond_matches = false
+
 					if cond_pattern == '-d' then -- is directory
-						cond_matches = path_exists(filepath..'/')
+						cond_matches = file_type == 'directory'
 					elseif cond_pattern == '-f' or cond_pattern == '-F' then -- is file
-						cond_matches = path_exists(filepath) and not path_exists(filepath..'/')
+						cond_matches = file_type == 'file'
+					elseif cond_pattern == '-l' or cond_pattern == '-L' then -- is symlink
+						cond_matches = file_type == 'link'
 					else
 						fail('RewriteCond pattern unsupported: '..cond_pattern)
 					end

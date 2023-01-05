@@ -65,10 +65,10 @@ When you request a URL that triggers the Lua script, it will pause on the `dbg.b
 
 ### Manual installation
 
-1. Install nginx with the [Lua module](https://github.com/openresty/lua-nginx-module) `libnginx-mod-http-lua` and the `luajit` package.
-    1. Debian: `apt-get install nginx libnginx-mod-http-lua luajit`
-    2. Fedora: `yum install nginx libnginx-mod-http-lua luajit`
-    
+1. Install nginx with the [Lua module](https://github.com/openresty/lua-nginx-module) `libnginx-mod-http-lua` and the `luajit` and `luarocks` packages.
+    1. Debian: `apt-get install nginx libnginx-mod-http-lua luajit luarocks`
+    2. Fedora: `dnf install nginx libnginx-mod-http-lua luajit luarocks`
+1. Install the [LuaFileSystem](https://lunarmodules.github.io/luafilesystem/) module via `luarocks install luafilesystem`
 1. Verify that the Lua module is properly installed by running:
     ```bash
     nginx -V 2>&1 | tr ' ' '\n' | grep lua
@@ -266,7 +266,7 @@ mod_negotiation	|	`ForceLanguagePriority`	|	No	|
 mod_negotiation	|	`LanguagePriority`	|	No	|	
 mod_reflector	|	`*`	|	Never	|	Security reasons
 mod_rewrite	|	`RewriteBase`	|	Yes	|	
-mod_rewrite	|	`RewriteCond`	|	Partial	|	Environment (E=) flag is unsupported, as are *CondPattern* integer comparisons and some file attribute tests listed in the [documentation](https://httpd.apache.org/docs/2.4/mod/mod_rewrite.html)
+mod_rewrite	|	`RewriteCond`	|	Partial	|	Environment (E=) flag is unsupported, as are *CondPattern* integer comparisons and some file attribute tests listed in the [documentation](https://httpd.apache.org/docs/2.4/mod/mod_rewrite.html).
 mod_rewrite	|	`RewriteEngine`	|	Yes	|	
 mod_rewrite	|	`RewriteOptions`	|	No	|	
 mod_rewrite	|	`RewriteRule`	|	Yes	|	
