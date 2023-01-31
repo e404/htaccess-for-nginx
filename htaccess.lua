@@ -804,7 +804,7 @@ local replace_server_vars = function(str, track_used_headers)
 				replace = os.date('%w')
 			end
 		elseif whitelist[svar] then
-			replace = ngx.var[svar]
+			replace = ngx.var[svar] or ''
 		elseif svar == 'request_uri' then -- %{REQUEST_URI}
 			-- Use ngx.var['uri'] to match the Apache convention since it doesn't contain the query string
 			replace = ngx.var['uri']
