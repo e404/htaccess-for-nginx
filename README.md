@@ -25,13 +25,11 @@ When using nginx, there are many **legitimate reasons** to support `.htaccess` f
 * **Justified.** Apache performs multiple file reads anyway, so .htaccess for nginx cannot make it worse than Apache, right? In fact, with our built-in micro caching mechanism both, CPU and I/O load are reduced drastically compared to Apache's implementation.
 * **For webhosters.** Today, webhosters still need to provide an interface for their customers to change certain aspects of their webserver's behaviour. The decades long and proven `.htaccess` file does just that.
 
-
 ## Performance
 
 **.htaccess for nginx is incredibly lightweight and fast!** It is written from the ground up with performance optimizations in mind. Even with low-end hardware it adds less than 1 millisecond to your response time, despite supporting quite complex rewrite structures with server variables.
 
 Physical memory usage of this plugin is insanely low, under 10 KB for each nginx worker process, and it doesn't increase with more requests.
-
 
 ## Requirements
 
@@ -44,11 +42,11 @@ Physical memory usage of this plugin is insanely low, under 10 KB for each nginx
 
 ## Installation
 
-1. Install nginx with the [Lua module](https://github.com/openresty/lua-nginx-module) `libnginx-mod-http-lua` and the `luajit` package.
-    1. Debian: `apt-get install nginx libnginx-mod-http-lua luajit`
-    2. Fedora: `yum install nginx libnginx-mod-http-lua luajit`
-    
-1. Verify that the Lua module is properly installed by running:
+1. Install nginx with the [Lua module](https://github.com/openresty/lua-nginx-module) `libnginx-mod-http-lua` and the `luajit` and `luarocks` packages.
+    1. Debian: `apt-get install nginx libnginx-mod-http-lua luajit luarocks`
+    2. Fedora: `dnf install nginx libnginx-mod-http-lua luajit luarocks`
+2. Install the [LuaFileSystem](https://lunarmodules.github.io/luafilesystem/) module via `luarocks install luafilesystem`
+3. Verify that the Lua module is properly installed by running:
     ```bash
     nginx -V 2>&1 | tr ' ' '\n' | grep lua
     ```
@@ -58,20 +56,23 @@ Physical memory usage of this plugin is insanely low, under 10 KB for each nginx
     --add-module=/lua-upstream-nginx-module-0.07
     --add-module=/stream-lua-nginx-module-9ce0848cff7c3c5eb0a7d5adfe2de22ea98e1abc
     ```
-2. Build and install the plugin into an appropriate directory accessible by the nginx process, e.g., 
+4. Build and install the plugin into an appropriate directory accessible by the nginx process, e.g., 
     ```bash
     luajit -b htaccess.lua /etc/nginx/lua/htaccess.lbc
     ```
-3. Add the following configuration to the nginx `http {}` context:
+5. Add the following configuration to the nginx `http {}` context:
     ```nginx
     http {
         ...
         lua_shared_dict htaccess 16m;
+
+        # This is useful for debugging but may cause performance problems
+        # lua_code_cache off;
         ...
     }
     ```
     This represents a caching system, used on a short-term per-request basis. `.htaccess` lines are usually cached as values for less than 100 milliseconds, but kept in memory as long as there are active connections. You can choose to assign any other memory amount to it, although 16 MB should be more than enough.
-4. Configure the nginx `server {}` context(s) to use the plugin:
+6. Configure the nginx `server {}` context(s) to use the plugin:
     ```nginx
     server {
         ...
@@ -242,7 +243,7 @@ mod_negotiation	|	`ForceLanguagePriority`	|	No	|
 mod_negotiation	|	`LanguagePriority`	|	No	|	
 mod_reflector	|	`*`	|	Never	|	Security reasons
 mod_rewrite	|	`RewriteBase`	|	Yes	|	
-mod_rewrite	|	`RewriteCond`	|	Partial	|	Environment (E=) flag is unsupported, as are *CondPattern* integer comparisons and some file attribute tests listed in the [documentation](https://httpd.apache.org/docs/2.4/mod/mod_rewrite.html)
+mod_rewrite	|	`RewriteCond`	|	Partial	|	Environment (E=) flag is unsupported, as are *CondPattern* integer comparisons and some file attribute tests listed in the [documentation](https://httpd.apache.org/docs/2.4/mod/mod_rewrite.html).
 mod_rewrite	|	`RewriteEngine`	|	Yes	|	
 mod_rewrite	|	`RewriteOptions`	|	No	|	
 mod_rewrite	|	`RewriteRule`	|	Yes	|	
@@ -321,64 +322,3 @@ Variables not listed below are not supported.
         ...
     }
     ```
-
-
-## Debugging Lua inside a Docker container
-
-Using IntelliJ IDEA, you can remotely debug Lua scripts like `htaccess.lua` running in an nginx Docker container, using [these steps](https://dev.to/omervk/debugging-lua-inside-openresty-inside-docker-with-intellij-idea-2h95).  In particular, this has been tested on a Windows 10 host running IntelliJ IDEA 2022.2.4 (Community Edition), with the `fabiocicerchia/nginx-lua:1.23.2-almalinux8.7-20221201` Docker image from https://hub.docker.com/r/fabiocicerchia/nginx-lua.  
-
-It assumes you are mapping a host path of `C:\path\to\project\on\windows` to a path in the container volume of `/path/to/project`.
-
-1. Install [IntelliJ IDEA](https://www.jetbrains.com/idea/download/#section=windows)
-1. The container needs to forward port 9966 to allow for Lua debugging.  If you are using `docker-compose.yml` it will look something like this:
-    ```yml
-    version: '2.4'
-    services:
-    nginx-lua:
-        build:
-            context: .
-        container_name: nginx-lua
-        ports:
-        # For nginx requests over HTTP
-        - 80:80
-        # If you support nginx requests over HTTPS
-        - 443:443
-        # For Lua debugging
-        - 9966:9966
-        volumes:
-        - ./relative/path/to/project/on/windows/:/path/to/project/
-    ```
-1. In the `Dockerfile` for the container, run the following command to build the EmmyLuaDebugger from source:
-    ```bash 
-    RUN dnf install -y cmake && \
-        curl https://github.com/EmmyLua/EmmyLuaDebugger/archive/refs/tags/1.0.16.tar.gz \
-            -L -o EmmyLuaDebugger-1.0.16.tar.gz && \
-        tar -xzvf EmmyLuaDebugger-1.0.16.tar.gz && \
-        cd EmmyLuaDebugger-1.0.16 && \
-            mkdir -p build && \
-            cd build && \
-                cmake -DCMAKE_BUILD_TYPE=Release ../ && \
-                make install && \
-                mkdir -p /usr/local/emmy && \
-                cp install/bin/emmy_core.so /usr/local/emmy/ && \
-            cd .. && \
-        cd .. && \
-        rm -rf EmmyLuaDebugger-1.0.16 EmmyLuaDebugger-1.0.16.tar.gz
-    ```
-1. Start the container
-1. At the top of your Lua script to debug, add the following:
-    ```lua
-    _G.emmy = {}
-    _G.emmy.fixPath = function(path)
-        return string.gsub(path, '/path/to/project/', 'C:/path/to/project/on/windows')
-    end
-
-    package.cpath = package.cpath .. ';/usr/local/emmy/?.so'
-    local dbg = require('emmy_core')
-    dbg.tcpListen('localhost', 9966)
-    dbg.waitIDE()
-    dbg.breakHere()
-    ```
-1. In IDEA, create a Run/Debug configuration per the link and then start the debugger
-
-When you request a URL that triggers the Lua script, it will pause on the `dbg.breakHere()` line so you can step through the code, watch variables, etc.
