@@ -25,13 +25,11 @@ When using nginx, there are many **legitimate reasons** to support `.htaccess` f
 * **Justified.** Apache performs multiple file reads anyway, so .htaccess for nginx cannot make it worse than Apache, right? In fact, with our built-in micro caching mechanism both, CPU and I/O load are reduced drastically compared to Apache's implementation.
 * **For webhosters.** Today, webhosters still need to provide an interface for their customers to change certain aspects of their webserver's behaviour. The decades long and proven `.htaccess` file does just that.
 
-
 ## Performance
 
 **.htaccess for nginx is incredibly lightweight and fast!** It is written from the ground up with performance optimizations in mind. Even with low-end hardware it adds less than 1 millisecond to your response time, despite supporting quite complex rewrite structures with server variables.
 
 Physical memory usage of this plugin is insanely low, under 10 KB for each nginx worker process, and it doesn't increase with more requests.
-
 
 ## Requirements
 
@@ -44,32 +42,11 @@ Physical memory usage of this plugin is insanely low, under 10 KB for each nginx
 
 ## Installation
 
-### Docker container
-
-A Docker container is included as a reference; simply start it via `docker compose up -d`.
-
-If you navigate to http://localhost it will process the sample `web/.htaccess`, which has a RewriteRule mapping http://localhost/go/ to http://localhost/redirect.html.
-
-
-#### Remote debugging
-
-Using IntelliJ IDEA, you can remotely debug Lua scripts running in an nginx Docker container, using [these steps](https://dev.to/omervk/debugging-lua-inside-openresty-inside-docker-with-intellij-idea-2h95).  In particular, this has been tested on a Windows 10 host running IntelliJ IDEA 2022.2.4 (Community Edition).
-
-It assumes you are mapping a host path of `C:\path\to\project\on\windows` to a path in the container volume of `/docker`.
-
-1. Install [IntelliJ IDEA](https://www.jetbrains.com/idea/download/#section=windows)
-1. At the top of `htaccess.lua`, uncomment the debugging block and update the Windows path mapping.
-1. In IDEA, create a Run/Debug configuration per the link above and then start the debugger
-
-When you request a URL that triggers the Lua script, it will pause on the `dbg.breakHere()` line so you can step through the code, watch variables, etc.
-
-### Manual installation
-
 1. Install nginx with the [Lua module](https://github.com/openresty/lua-nginx-module) `libnginx-mod-http-lua` and the `luajit` and `luarocks` packages.
     1. Debian: `apt-get install nginx libnginx-mod-http-lua luajit luarocks`
     2. Fedora: `dnf install nginx libnginx-mod-http-lua luajit luarocks`
-1. Install the [LuaFileSystem](https://lunarmodules.github.io/luafilesystem/) module via `luarocks install luafilesystem`
-1. Verify that the Lua module is properly installed by running:
+2. Install the [LuaFileSystem](https://lunarmodules.github.io/luafilesystem/) module via `luarocks install luafilesystem`
+3. Verify that the Lua module is properly installed by running:
     ```bash
     nginx -V 2>&1 | tr ' ' '\n' | grep lua
     ```
@@ -79,11 +56,11 @@ When you request a URL that triggers the Lua script, it will pause on the `dbg.b
     --add-module=/lua-upstream-nginx-module-0.07
     --add-module=/stream-lua-nginx-module-9ce0848cff7c3c5eb0a7d5adfe2de22ea98e1abc
     ```
-2. Build and install the plugin into an appropriate directory accessible by the nginx process, e.g., 
+4. Build and install the plugin into an appropriate directory accessible by the nginx process, e.g., 
     ```bash
     luajit -b htaccess.lua /etc/nginx/lua/htaccess.lbc
     ```
-3. Add the following configuration to the nginx `http {}` context:
+5. Add the following configuration to the nginx `http {}` context:
     ```nginx
     http {
         ...
@@ -95,7 +72,7 @@ When you request a URL that triggers the Lua script, it will pause on the `dbg.b
     }
     ```
     This represents a caching system, used on a short-term per-request basis. `.htaccess` lines are usually cached as values for less than 100 milliseconds, but kept in memory as long as there are active connections. You can choose to assign any other memory amount to it, although 16 MB should be more than enough.
-4. Configure the nginx `server {}` context(s) to use the plugin:
+6. Configure the nginx `server {}` context(s) to use the plugin:
     ```nginx
     server {
         ...
