@@ -6,19 +6,6 @@
 
 -- TODO: Sometimes code is executed 4 times for each request due to the way nginx handles requests. Make sure it is cached accordingly.
 
--- Uncomment the following to enable remote debugging
--- Note that if the container volume path contains dashes, they will need to be escaped - e.g., /path/to/htaccess%-for%-nginx
--- _G.emmy = {}
--- _G.emmy.fixPath = function(path)
--- 	return path:gsub('/docker/', 'C:/path/to/project/on/windows')
--- end
-
--- package.cpath = package.cpath .. ';/usr/local/emmy/?.so'
--- local dbg = require('emmy_core')
--- dbg.tcpListen('localhost', 9966)
--- dbg.waitIDE()
--- dbg.breakHere()
-
 -- Error function, returns HTTP 500 and logs an error message
 local fail = function(msg)
 	if msg then
@@ -361,14 +348,6 @@ local push_cdir = function(directive_type, value)
 		table.insert(cdir[directive_type], value_to_push)
 	end
 end
-
--- Helper function to get computed directive value and actual context table
--- local resolve_cdir_value = function(value_table)
--- 	if not value_table then
--- 		return nil
--- 	end
--- 	return value_table[C_VALUE], ctx_map[value_table[C_CTX_INDEX]]
--- end
 
 -- Return computed directive by type
 -- directive_type ... string of requested type (lowercase), e.g. 'rewriterules'
