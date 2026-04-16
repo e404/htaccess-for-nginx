@@ -274,7 +274,8 @@ local cdir = {
 	['rewritebase'] = {},
 	['rewriterules'] = {[C_MULTIPLE] = true},
 	['rewrite'] = {},
-	['contenttypes'] = {[C_INDEXED] = true}
+	['contenttypes'] = {[C_INDEXED] = true},
+	['headers'] = {[C_MULTIPLE] = true}
 }
 
 -- Directive context stack, using mapped table assignments to save memory and table copies
@@ -721,6 +722,22 @@ local parse_htaccess_directive = function(instruction, params_cs, current_dir)
 	elseif instruction == 'rewriteoptions' then
 		fail('RewriteOptions is not yet implemented')
 		-- TODO
+	elseif instruction == 'header' then
+		local attr = parse_attributes(params_cs)
+		local action = attr[1]:lower()
+		if action == 'always' or action == 'onsuccess' then
+			table.remove(attr, 1)
+			action = attr[1]:lower()
+		end
+		if action == 'set' or action == 'append' or action == 'add' or action == 'merge' then
+			if attr[2] and attr[3] then
+				push_cdir('headers', {action, attr[2], attr[3]})
+			end
+		elseif action == 'unset' then
+			if attr[2] then
+				push_cdir('headers', {action, attr[2]})
+			end
+		end
 	elseif instruction == 'acceptpathinfo' then
 		if params == 'on' then
 			-- TODO
@@ -853,9 +870,10 @@ for statement in htaccess:gmatch('[^\r\n]+') do
 						['core'] = true,
 						['authn_core'] = true,
 						['authn_file'] = true,
-						['authz_core'] = true,
-						['access_compat'] = true,
-						['version'] = true
+					['authz_core'] = true,
+					['access_compat'] = true,
+					['version'] = true,
+					['headers'] = true
 					}
 					module = module:gsub('^mod_', ''):gsub('_module$', ''):gsub('%.c$', '')
 					if supported_modules[module] then
@@ -1330,6 +1348,36 @@ if request_fileext ~= nil then
 	local contenttype = get_cdir('contenttypes', request_fileext)
 	if contenttype ~= nil then
 		ngx.header['Content-Type'] = contenttype
+	end
+end
+
+-- Header handling
+local parsed_headers = get_cdir('headers', C_MULTIPLE)
+if parsed_headers and #parsed_headers > 0 then
+	for _, header in ipairs(parsed_headers) do
+		local action = header[1]
+		local name = header[2]
+		if action == 'set' then
+			ngx.header[name] = header[3]
+		elseif action == 'append' or action == 'add' then
+			local existing = ngx.header[name]
+			if existing then
+				ngx.header[name] = existing..', '..header[3]
+			else
+				ngx.header[name] = header[3]
+			end
+		elseif action == 'merge' then
+			local existing = ngx.header[name]
+			if existing then
+				if not existing:lower():find(header[3]:lower(), 1, true) then
+					ngx.header[name] = existing..', '..header[3]
+				end
+			else
+				ngx.header[name] = header[3]
+			end
+		elseif action == 'unset' then
+			ngx.header[name] = nil
+		end
 	end
 end
 
