@@ -94,7 +94,7 @@ end
 local ip = ngx.var.remote_addr -- The client's real IP address
 local rootpath = ngx.var.realpath_root..'/' -- The root directory of the current host
 local request_filepath = ngx.var.request_filename -- The requested full file path resolved to the root directory
-local request_filename = ngx.var.request_filename:match('/([^/]+)$') -- The requested filename
+local request_filename = ngx.var.request_filename:match('/([^/]+)$') or '' -- The requested filename (empty string for directory requests)
 local request_fileext = ngx.var.request_filename:lower():match('%.([^%./]+)$') -- The requested filename's extension (lower case)
 local request_relative_filepath = request_filepath:sub(rootpath:len()) -- the requested relative file path with leading / (might match the request_uri)
 
