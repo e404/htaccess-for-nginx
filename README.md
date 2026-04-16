@@ -212,7 +212,7 @@ mod_filter	|	`FilterChain`	|	No	|
 mod_filter	|	`FilterDeclare`	|	No	|	
 mod_filter	|	`FilterProtocol`	|	No	|	
 mod_filter	|	`FilterProvider`	|	No	|	
-mod_headers	|	`Header`	|	No	|	
+mod_headers	|	`Header`	|	Yes	|	
 mod_headers	|	`RequestHeader`	|	No	|	
 mod_imagemap	|	`*`	|	No	|	
 mod_include	|	`SSIErrorMsg`	|	No	|	
