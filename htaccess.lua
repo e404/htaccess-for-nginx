@@ -274,7 +274,8 @@ local cdir = {
 	['rewritebase'] = {},
 	['rewriterules'] = {[C_MULTIPLE] = true},
 	['rewrite'] = {},
-	['contenttypes'] = {[C_INDEXED] = true}
+	['contenttypes'] = {[C_INDEXED] = true},
+	['headers'] = {[C_MULTIPLE] = true}
 }
 
 -- Directive context stack, using mapped table assignments to save memory and table copies
@@ -721,6 +722,22 @@ local parse_htaccess_directive = function(instruction, params_cs, current_dir)
 	elseif instruction == 'rewriteoptions' then
 		fail('RewriteOptions is not yet implemented')
 		-- TODO
+	elseif instruction == 'header' then
+		local attr = parse_attributes(params_cs)
+		local action = attr[1]:lower()
+		if action == 'always' or action == 'onsuccess' then
+			table.remove(attr, 1)
+			action = attr[1]:lower()
+		end
+		if action == 'set' or action == 'append' or action == 'add' or action == 'merge' then
+			if attr[2] and attr[3] then
+				push_cdir('headers', {action, attr[2], attr[3]})
+			end
+		elseif action == 'unset' then
+			if attr[2] then
+				push_cdir('headers', {action, attr[2]})
+			end
+		end
 	elseif instruction == 'acceptpathinfo' then
 		if params == 'on' then
 			-- TODO
@@ -853,9 +870,10 @@ for statement in htaccess:gmatch('[^\r\n]+') do
 						['core'] = true,
 						['authn_core'] = true,
 						['authn_file'] = true,
-						['authz_core'] = true,
-						['access_compat'] = true,
-						['version'] = true
+					['authz_core'] = true,
+					['access_compat'] = true,
+					['version'] = true,
+					['headers'] = true
 					}
 					module = module:gsub('^mod_', ''):gsub('_module$', ''):gsub('%.c$', '')
 					if supported_modules[module] then
@@ -1330,6 +1348,95 @@ if request_fileext ~= nil then
 	local contenttype = get_cdir('contenttypes', request_fileext)
 	if contenttype ~= nil then
 		ngx.header['Content-Type'] = contenttype
+	end
+end
+
+-- Header handling
+-- Note: lua-nginx-module may return ngx.header[name] as a table when the
+-- same header was sent multiple times (e.g. Set-Cookie, Via, X-Forwarded-For).
+-- We must normalize it to a string before any string operations to avoid
+-- crashing the nginx worker (which would surface as a 500 Internal Server Error).
+local header_to_string = function(value)
+	if type(value) == 'table' then
+		return table.concat(value, ', ')
+	end
+	return value
+end
+-- Set-Cookie must not be comma-joined (RFC 6265) / We need to be sure whether this is Set-Cookie.
+local is_set_cookie = function(name)
+	return type(name) == 'string' and name:lower() == 'set-cookie'
+end
+local header_append = function(name, value)
+	local existing = ngx.header[name]
+	if is_set_cookie(name) then
+		local new_value
+		if type(existing) == 'table' then
+			new_value = {}
+			for _, v in ipairs(existing) do
+				table.insert(new_value, v)
+			end
+			table.insert(new_value, value)
+		elseif existing and existing ~= '' then
+			new_value = {existing, value}
+		else
+			new_value = value
+		end
+		ngx.header[name] = new_value
+	else
+		local existing_str = header_to_string(existing)
+		if existing_str and existing_str ~= '' then
+			ngx.header[name] = existing_str..', '..value
+		else
+			ngx.header[name] = value
+		end
+	end
+end
+local parsed_headers = get_cdir('headers', C_MULTIPLE)
+if parsed_headers and #parsed_headers > 0 then
+	for _, header in ipairs(parsed_headers) do
+		local action = header[1]
+		local name = header[2]
+		local value = header[3]
+		-- Skip malformed directives; all actions except 'unset' need a non-empty
+		-- string name and value, otherwise concat/lower would crash Nginx.
+		if type(name) ~= 'string' or name == '' then
+			goto next_header
+		end
+		if action ~= 'unset' and (type(value) ~= 'string' or value == '') then
+			goto next_header
+		end
+		if action == 'set' then
+			ngx.header[name] = value
+		elseif action == 'append' or action == 'add' then
+			header_append(name, value)
+		elseif action == 'merge' then
+			if is_set_cookie(name) then
+				-- We don’t use substring dedup for cookies.
+				header_append(name, value)
+			else
+				local existing = header_to_string(ngx.header[name])
+				if existing and existing ~= '' then
+					-- Exact token match (case-insensitive), not substring,
+					-- to avoid false positives like finding string "age=86" inside "max-age=86400".
+					local new_value = trim(value):lower()
+					local found = false
+					for token in (existing..','):gmatch('([^,]*),') do
+						if trim(token):lower() == new_value then
+							found = true
+							break
+						end
+					end
+					if not found then
+						ngx.header[name] = existing..', '..value
+					end
+				else
+					ngx.header[name] = value
+				end
+			end
+		elseif action == 'unset' then
+			ngx.header[name] = nil
+		end
+		::next_header::
 	end
 end
 
