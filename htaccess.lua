@@ -1407,7 +1407,17 @@ if parsed_headers and #parsed_headers > 0 then
 			else
 				local existing = header_to_string(ngx.header[name])
 				if existing and existing ~= '' then
-					if not existing:lower():find(header[3]:lower(), 1, true) then
+					-- Exact token match (case-insensitive), not substring,
+					-- to avoid false positives like finding string "age=86" inside "max-age=86400".
+					local new_value = trim(header[3]):lower()
+					local found = false
+					for token in (existing..','):gmatch('([^,]*),') do
+						if trim(token):lower() == new_value then
+							found = true
+							break
+						end
+					end
+					if not found then
 						ngx.header[name] = existing..', '..header[3]
 					end
 				else
