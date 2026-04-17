@@ -1396,20 +1396,29 @@ if parsed_headers and #parsed_headers > 0 then
 	for _, header in ipairs(parsed_headers) do
 		local action = header[1]
 		local name = header[2]
+		local value = header[3]
+		-- Skip malformed directives; all actions except 'unset' need a non-empty
+		-- string name and value, otherwise concat/lower would crash Nginx.
+		if type(name) ~= 'string' or name == '' then
+			goto next_header
+		end
+		if action ~= 'unset' and (type(value) ~= 'string' or value == '') then
+			goto next_header
+		end
 		if action == 'set' then
-			ngx.header[name] = header[3]
+			ngx.header[name] = value
 		elseif action == 'append' or action == 'add' then
-			header_append(name, header[3])
+			header_append(name, value)
 		elseif action == 'merge' then
 			if is_set_cookie(name) then
 				-- We don’t use substring dedup for cookies.
-				header_append(name, header[3])
+				header_append(name, value)
 			else
 				local existing = header_to_string(ngx.header[name])
 				if existing and existing ~= '' then
 					-- Exact token match (case-insensitive), not substring,
 					-- to avoid false positives like finding string "age=86" inside "max-age=86400".
-					local new_value = trim(header[3]):lower()
+					local new_value = trim(value):lower()
 					local found = false
 					for token in (existing..','):gmatch('([^,]*),') do
 						if trim(token):lower() == new_value then
@@ -1418,15 +1427,16 @@ if parsed_headers and #parsed_headers > 0 then
 						end
 					end
 					if not found then
-						ngx.header[name] = existing..', '..header[3]
+						ngx.header[name] = existing..', '..value
 					end
 				else
-					ngx.header[name] = header[3]
+					ngx.header[name] = value
 				end
 			end
 		elseif action == 'unset' then
 			ngx.header[name] = nil
 		end
+		::next_header::
 	end
 end
 
