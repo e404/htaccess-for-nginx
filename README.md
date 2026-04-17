@@ -206,7 +206,7 @@ mod_env	|	`SetEnv`	|	No	|
 mod_env	|	`UnsetEnv`	|	No	|	
 mod_expires	|	`ExpiresActive`	|	Yes	|	
 mod_expires	|	`ExpiresByType`	|	Yes	|	Both long form (`"access plus 1 year"`) and compact form (`"A3600"`/`"M3600"`) are supported
-mod_expires	|	`ExpiresDefault`	|	No	|	
+mod_expires	|	`ExpiresDefault`	|	Yes	|	
 mod_filter	|	`AddOutputFilterByType`	|	No	|	
 mod_filter	|	`FilterChain`	|	No	|	
 mod_filter	|	`FilterDeclare`	|	No	|	

@@ -346,7 +346,8 @@ local cdir = {
 	['contenttypes'] = {[C_INDEXED] = true},
 	['headers'] = {[C_MULTIPLE] = true},
 	['expiresactive'] = {},
-	['expiresbytype'] = {[C_INDEXED] = true}
+	['expiresbytype'] = {[C_INDEXED] = true},
+	['expiresdefault'] = {}
 }
 
 -- Directive context stack, using mapped table assignments to save memory and table copies
@@ -778,6 +779,13 @@ local parse_htaccess_directive = function(instruction, params_cs, current_dir)
 			if parse_expires_spec(attr[2]) then
 				push_cdir({'expiresbytype', attr[1]:lower()}, attr[2])
 			end
+		end
+	elseif instruction == 'expiresdefault' then
+		-- ExpiresDefault takes a single spec, which may be quoted
+		local attr = parse_attributes(params_cs)
+		local spec = attr[1]
+		if spec and parse_expires_spec(spec) then
+			push_cdir('expiresdefault', spec)
 		end
 	elseif instruction == 'rewriteengine' then
 		if params == 'on' then
@@ -1437,9 +1445,9 @@ if request_fileext ~= nil then
 end
 
 -- Expires handling (mod_expires)
--- Only ExpiresActive and ExpiresByType are supported. Content-Type is resolved
--- from AddType above (or from a previously set response header), since at the
--- rewrite phase nginx's own MIME detection has not run yet.
+-- Content-Type is resolved from AddType above (or from a previously set
+-- response header), since at the rewrite phase nginx's own MIME detection has
+-- not run yet. ExpiresByType overrides ExpiresDefault on a per-type basis.
 if get_cdir('expiresactive') then
 	local content_type
 	if request_fileext ~= nil then
@@ -1454,35 +1462,39 @@ if get_cdir('expiresactive') then
 			content_type = hdr
 		end
 	end
+	local expires_spec
 	if type(content_type) == 'string' and content_type ~= '' then
 		-- Strip any "; charset=..." suffix and lowercase to match ExpiresByType keys
 		content_type = (content_type:match('^([^;%s]+)') or content_type):lower()
-		local expires_spec = get_cdir('expiresbytype', content_type)
-		if expires_spec then
-			local base, delta = parse_expires_spec(expires_spec)
-			if base and delta then
-				local ref_time
-				if base == 'modification' then
-					-- Only resolve mtime for files safely inside the document root
-					if in_doc_root(request_filepath) then
-						local lfs = require 'lfs'
-						local attr = lfs.attributes(request_filepath)
-						if attr and attr.modification then
-							ref_time = attr.modification
-						end
+		expires_spec = get_cdir('expiresbytype', content_type)
+	end
+	if not expires_spec then
+		expires_spec = get_cdir('expiresdefault') -- Fallback when no per-type rule matches
+	end
+	if expires_spec then
+		local base, delta = parse_expires_spec(expires_spec)
+		if base and delta then
+			local ref_time
+			if base == 'modification' then
+				-- Only resolve mtime for files safely inside the document root
+				if in_doc_root(request_filepath) then
+					local lfs = require 'lfs'
+					local attr = lfs.attributes(request_filepath)
+					if attr and attr.modification then
+						ref_time = attr.modification
 					end
-				else
-					ref_time = ngx.time()
 				end
-				if ref_time then
-					local expires_time = ref_time + delta
-					local max_age = expires_time - ngx.time()
-					if max_age < 0 then
-						max_age = 0 -- Clamp, as Apache does, to avoid negative max-age
-					end
-					ngx.header['Expires'] = ngx.http_time(expires_time)
-					ngx.header['Cache-Control'] = 'max-age='..max_age
+			else
+				ref_time = ngx.time()
+			end
+			if ref_time then
+				local expires_time = ref_time + delta
+				local max_age = expires_time - ngx.time()
+				if max_age < 0 then
+					max_age = 0 -- Clamp, as Apache does, to avoid negative max-age
 				end
+				ngx.header['Expires'] = ngx.http_time(expires_time)
+				ngx.header['Cache-Control'] = 'max-age='..max_age
 			end
 		end
 	end
