@@ -1362,6 +1362,35 @@ local header_to_string = function(value)
 	end
 	return value
 end
+-- Set-Cookie must not be comma-joined (RFC 6265) / We need to be sure whether this is Set-Cookie.
+local is_set_cookie = function(name)
+	return type(name) == 'string' and name:lower() == 'set-cookie'
+end
+local header_append = function(name, value)
+	local existing = ngx.header[name]
+	if is_set_cookie(name) then
+		local new_value
+		if type(existing) == 'table' then
+			new_value = {}
+			for _, v in ipairs(existing) do
+				table.insert(new_value, v)
+			end
+			table.insert(new_value, value)
+		elseif existing and existing ~= '' then
+			new_value = {existing, value}
+		else
+			new_value = value
+		end
+		ngx.header[name] = new_value
+	else
+		local existing_str = header_to_string(existing)
+		if existing_str and existing_str ~= '' then
+			ngx.header[name] = existing_str..', '..value
+		else
+			ngx.header[name] = value
+		end
+	end
+end
 local parsed_headers = get_cdir('headers', C_MULTIPLE)
 if parsed_headers and #parsed_headers > 0 then
 	for _, header in ipairs(parsed_headers) do
@@ -1370,20 +1399,20 @@ if parsed_headers and #parsed_headers > 0 then
 		if action == 'set' then
 			ngx.header[name] = header[3]
 		elseif action == 'append' or action == 'add' then
-			local existing = header_to_string(ngx.header[name])
-			if existing and existing ~= '' then
-				ngx.header[name] = existing..', '..header[3]
-			else
-				ngx.header[name] = header[3]
-			end
+			header_append(name, header[3])
 		elseif action == 'merge' then
-			local existing = header_to_string(ngx.header[name])
-			if existing and existing ~= '' then
-				if not existing:lower():find(header[3]:lower(), 1, true) then
-					ngx.header[name] = existing..', '..header[3]
-				end
+			if is_set_cookie(name) then
+				-- We don’t use substring dedup for cookies.
+				header_append(name, header[3])
 			else
-				ngx.header[name] = header[3]
+				local existing = header_to_string(ngx.header[name])
+				if existing and existing ~= '' then
+					if not existing:lower():find(header[3]:lower(), 1, true) then
+						ngx.header[name] = existing..', '..header[3]
+					end
+				else
+					ngx.header[name] = header[3]
+				end
 			end
 		elseif action == 'unset' then
 			ngx.header[name] = nil
