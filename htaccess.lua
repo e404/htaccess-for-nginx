@@ -1352,6 +1352,16 @@ if request_fileext ~= nil then
 end
 
 -- Header handling
+-- Note: lua-nginx-module may return ngx.header[name] as a table when the
+-- same header was sent multiple times (e.g. Set-Cookie, Via, X-Forwarded-For).
+-- We must normalize it to a string before any string operations to avoid
+-- crashing the nginx worker (which would surface as a 500 Internal Server Error).
+local header_to_string = function(value)
+	if type(value) == 'table' then
+		return table.concat(value, ', ')
+	end
+	return value
+end
 local parsed_headers = get_cdir('headers', C_MULTIPLE)
 if parsed_headers and #parsed_headers > 0 then
 	for _, header in ipairs(parsed_headers) do
@@ -1360,15 +1370,15 @@ if parsed_headers and #parsed_headers > 0 then
 		if action == 'set' then
 			ngx.header[name] = header[3]
 		elseif action == 'append' or action == 'add' then
-			local existing = ngx.header[name]
-			if existing then
+			local existing = header_to_string(ngx.header[name])
+			if existing and existing ~= '' then
 				ngx.header[name] = existing..', '..header[3]
 			else
 				ngx.header[name] = header[3]
 			end
 		elseif action == 'merge' then
-			local existing = ngx.header[name]
-			if existing then
+			local existing = header_to_string(ngx.header[name])
+			if existing and existing ~= '' then
 				if not existing:lower():find(header[3]:lower(), 1, true) then
 					ngx.header[name] = existing..', '..header[3]
 				end
