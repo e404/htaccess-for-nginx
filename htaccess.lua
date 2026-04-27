@@ -212,6 +212,75 @@ local shell_escape_arg = function(s)
 	return s
 end
 
+-- Parse Apache mod_expires time specification
+-- Accepts long form ("access plus 1 year 6 months") and compact form ("A3600"/"M3600")
+-- Returns base ('access'|'modification') and total delta in seconds, or nil on malformed input
+local parse_expires_spec = function(spec)
+	if type(spec) ~= 'string' then
+		return nil
+	end
+	spec = trim(spec):lower()
+	if spec == '' then
+		return nil
+	end
+	-- Compact form: A<seconds> or M<seconds>
+	local cbase, csecs = spec:match('^([am])(%d+)$')
+	if cbase then
+		local base = 'access'
+		if cbase == 'm' then
+			base = 'modification'
+		end
+		return base, tonumber(csecs)
+	end
+	-- Long form: "<base> [plus] <num> <unit> [<num> <unit>]*"
+	local first, rest = spec:match('^(%a+)%s*(.*)$')
+	if not first then
+		return nil
+	end
+	local base
+	if first == 'access' or first == 'now' then
+		base = 'access'
+	elseif first == 'modification' then
+		base = 'modification'
+	else
+		return nil
+	end
+	rest = rest:gsub('^plus%s+', '', 1)
+	local seconds = 0
+	local found_any = false
+	for num, unit in rest:gmatch('(%d+)%s+(%a+)') do
+		num = tonumber(num)
+		if not num then
+			return nil -- Defensive, shouldn't happen due to the regex
+		end
+		-- Unit multipliers mimic Apache's mod_expires.c (prefix match, disambiguating mo/mi)
+		local c1 = unit:sub(1,1)
+		local c2 = unit:sub(1,2)
+		if c1 == 'y' then
+			seconds = seconds + num * 31536000
+		elseif c2 == 'mo' then
+			seconds = seconds + num * 2592000
+		elseif c1 == 'w' then
+			seconds = seconds + num * 604800
+		elseif c1 == 'd' then
+			seconds = seconds + num * 86400
+		elseif c1 == 'h' then
+			seconds = seconds + num * 3600
+		elseif c2 == 'mi' then
+			seconds = seconds + num * 60
+		elseif c1 == 's' then
+			seconds = seconds + num
+		else
+			return nil
+		end
+		found_any = true
+	end
+	if not found_any then
+		return nil
+	end
+	return base, seconds
+end
+
 -- Make sure the request_filepath is based on the root path (directory security)
 if request_filepath:sub(1, rootpath:len()) ~= rootpath then
 	die()
@@ -275,7 +344,10 @@ local cdir = {
 	['rewriterules'] = {[C_MULTIPLE] = true},
 	['rewrite'] = {},
 	['contenttypes'] = {[C_INDEXED] = true},
-	['headers'] = {[C_MULTIPLE] = true}
+	['headers'] = {[C_MULTIPLE] = true},
+	['expiresactive'] = {},
+	['expiresbytype'] = {[C_INDEXED] = true},
+	['expiresdefault'] = {}
 }
 
 -- Directive context stack, using mapped table assignments to save memory and table copies
@@ -693,6 +765,27 @@ local parse_htaccess_directive = function(instruction, params_cs, current_dir)
 				push_cdir({'contenttypes', attr[i]}, attr[1])
 				i = i + 1
 			end
+		end
+	elseif instruction == 'expiresactive' then
+		if params == 'on' then
+			push_cdir('expiresactive', true)
+		else
+			push_cdir('expiresactive', false)
+		end
+	elseif instruction == 'expiresbytype' then
+		local attr = parse_attributes(params_cs)
+		if attr[1] and attr[2] then
+			-- Only accept specs that parse correctly; reject malformed to avoid silent misconfiguration
+			if parse_expires_spec(attr[2]) then
+				push_cdir({'expiresbytype', attr[1]:lower()}, attr[2])
+			end
+		end
+	elseif instruction == 'expiresdefault' then
+		-- ExpiresDefault takes a single spec, which may be quoted
+		local attr = parse_attributes(params_cs)
+		local spec = attr[1]
+		if spec and parse_expires_spec(spec) then
+			push_cdir('expiresdefault', spec)
 		end
 	elseif instruction == 'rewriteengine' then
 		if params == 'on' then
@@ -1348,6 +1441,82 @@ if request_fileext ~= nil then
 	local contenttype = get_cdir('contenttypes', request_fileext)
 	if contenttype ~= nil then
 		ngx.header['Content-Type'] = contenttype
+	end
+end
+
+-- Expires handling (mod_expires)
+-- Content-Type is resolved from AddType above (or from a previously set
+-- response header), since at the rewrite phase nginx's own MIME detection has
+-- not run yet. ExpiresByType overrides ExpiresDefault on a per-type basis.
+if get_cdir('expiresactive') then
+	local content_type
+	if request_fileext ~= nil then
+		content_type = get_cdir('contenttypes', request_fileext)
+	end
+	if not content_type then
+		local hdr = ngx.header['Content-Type']
+		if type(hdr) == 'table' then
+			hdr = hdr[1]
+		end
+		if type(hdr) == 'string' then
+			content_type = hdr
+		end
+	end
+	local expires_spec
+	if type(content_type) == 'string' and content_type ~= '' then
+		-- Strip any "; charset=..." suffix and lowercase to match ExpiresByType keys
+		content_type = (content_type:match('^([^;%s]+)') or content_type):lower()
+		expires_spec = get_cdir('expiresbytype', content_type)
+	end
+	if not expires_spec then
+		expires_spec = get_cdir('expiresdefault') -- Fallback when no per-type rule matches
+	end
+	if expires_spec then
+		local base, delta = parse_expires_spec(expires_spec)
+		if base and delta then
+			local ref_time
+			if base == 'modification' then
+				-- Only resolve mtime for files safely inside the document root
+				if in_doc_root(request_filepath) then
+					local lfs = require 'lfs'
+					local attr = lfs.attributes(request_filepath)
+					if attr and attr.modification then
+						ref_time = attr.modification
+					end
+				end
+			else
+				ref_time = ngx.time()
+			end
+			if ref_time then
+				local expires_time = ref_time + delta
+				local max_age = expires_time - ngx.time()
+				if max_age < 0 then
+					max_age = 0 -- Clamp, as Apache does, to avoid negative max-age
+				end
+				ngx.header['Expires'] = ngx.http_time(expires_time)
+				-- Merge max-age into Cache-Control instead of replacing the whole header,
+				-- This preserves any previously set directives like "no-store", "private", "public", etc.
+				local existing_cc = ngx.header['Cache-Control']
+				if type(existing_cc) == 'table' then
+					existing_cc = table.concat(existing_cc, ', ')
+				end
+				if type(existing_cc) ~= 'string' or existing_cc == '' then
+					ngx.header['Cache-Control'] = 'max-age='..max_age
+				else
+					-- Drop any pre-existing max-age token (case-insensitive) to avoid
+					-- emitting duplicate/conflicting max-age values, then append ours.
+					local rebuilt = {}
+					for token in (existing_cc..','):gmatch('([^,]*),') do
+						local t = trim(token)
+						if t ~= '' and not t:lower():match('^max%-age%s*=') then
+							table.insert(rebuilt, t)
+						end
+					end
+					table.insert(rebuilt, 'max-age='..max_age)
+					ngx.header['Cache-Control'] = table.concat(rebuilt, ', ')
+				end
+			end
+		end
 	end
 end
 
