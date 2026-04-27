@@ -1494,7 +1494,27 @@ if get_cdir('expiresactive') then
 					max_age = 0 -- Clamp, as Apache does, to avoid negative max-age
 				end
 				ngx.header['Expires'] = ngx.http_time(expires_time)
-				ngx.header['Cache-Control'] = 'max-age='..max_age
+				-- Merge max-age into Cache-Control instead of replacing the whole header,
+				-- This preserves any previously set directives like "no-store", "private", "public", etc.
+				local existing_cc = ngx.header['Cache-Control']
+				if type(existing_cc) == 'table' then
+					existing_cc = table.concat(existing_cc, ', ')
+				end
+				if type(existing_cc) ~= 'string' or existing_cc == '' then
+					ngx.header['Cache-Control'] = 'max-age='..max_age
+				else
+					-- Drop any pre-existing max-age token (case-insensitive) to avoid
+					-- emitting duplicate/conflicting max-age values, then append ours.
+					local rebuilt = {}
+					for token in (existing_cc..','):gmatch('([^,]*),') do
+						local t = trim(token)
+						if t ~= '' and not t:lower():match('^max%-age%s*=') then
+							table.insert(rebuilt, t)
+						end
+					end
+					table.insert(rebuilt, 'max-age='..max_age)
+					ngx.header['Cache-Control'] = table.concat(rebuilt, ', ')
+				end
 			end
 		end
 	end
