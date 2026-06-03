@@ -1260,6 +1260,35 @@ if get_cdir('rewrite') and #parsed_rewriterules > 0 then
 				end
 				-- Add "Vary" header if no [NV] flag is present and headers have been used
 				if not cond_flags['nv'] then
+				    local existing_vary = ngx.header['Vary']
+				    local vary_map = {}
+				    if type(existing_vary) == 'table' then
+				        existing_vary = table.concat(existing_vary, ', ')
+				    end
+				    if type(existing_vary) == 'string' then
+				        for token in (existing_vary..','):gmatch('([^,]*),') do
+				            local t = trim(token):lower()
+				            if t ~= '' then vary_map[t] = token end -- Original-Casing behalten
+				        end
+				    end
+				    local has_new = false
+				    for h, _ in pairs(cond_vary_headers) do
+				        local h_lower = h:lower()
+				        if not vary_map[h_lower] then
+				            local cased_h = h:sub(1, 1):upper()..h:sub(2):gsub('-%l', string.upper)
+				            vary_map[h_lower] = cased_h
+				            has_new = true
+				        end
+				    end
+				    if has_new then
+				        local rebuilt_vary = {}
+				        for _, original_cased in pairs(vary_map) do
+				            table.insert(rebuilt_vary, original_cased)
+				        end
+				        ngx.header['Vary'] = table.concat(rebuilt_vary, ', ')
+				    end
+				end
+				if not cond_flags['nv'] then
 					local vary = false
 					for h, _ in pairs(cond_vary_headers) do
 						h = h:sub(1, 1):upper()..h:sub(2):gsub('-%l', string.upper) -- Uppercase header words
