@@ -1152,6 +1152,7 @@ if get_cdir('rewrite') and #parsed_rewriterules > 0 then
 	local uri = request_uri:sub(2) -- Remove leading '/' to match RewriteRule behaviour within .htaccess files
 	local dir, base, relative_uri, conds, regex, dst, flags, inverted, matches, cond_met, cond_test, cond_expr, cond_pattern, cond_flags, cond_inverted, cond_matches, cond_vary_headers, used_headers, flag, flag_value, regex_options
 	local redirect = false
+	local qsd = false
 	local always_matches = {['^']=true, ['.*']=true, ['^.*']=true, ['^.*$']=true}
 	local skip = 0
 	for _, ruleset in ipairs(parsed_rewriterules) do
@@ -1165,6 +1166,7 @@ if get_cdir('rewrite') and #parsed_rewriterules > 0 then
 			goto next_ruleset
 		end
 		redirect = false
+		qsd = false
 		relative_uri = uri:sub(base:len()+1)
 		conds = ruleset[3]
 		regex = ruleset[4][1]
@@ -1391,7 +1393,7 @@ if get_cdir('rewrite') and #parsed_rewriterules > 0 then
 							end
 						end
 					elseif flag == 'qsd' or flag == 'qsdiscard' then -- [QSD]
-						-- No-op, since relative_uri doesn't contain the query string anyway
+						qsd = true -- Discard the original query string instead of passing it through
 					elseif flag == 's' or flag == 'skip' then -- [S=n]
 						if flag_value:match('^[0-9]+$') then
 							skip = flag_value
@@ -1442,7 +1444,23 @@ if get_cdir('rewrite') and #parsed_rewriterules > 0 then
 				if dst:match('%.%.') then
 					fail('Parent directory selector /../ not allowed in RewriteRule for security reasons')
 				end
-				if request_uri ~= dst then
+				-- Apache passes the original query string through whenever the substitution
+				-- doesn't carry one of its own. ngx.exec()/ngx.redirect() drop it unless it
+				-- is part of dst, so re-attach it here.
+				local org_qs = ngx.var.query_string
+				if org_qs == '' then
+					org_qs = nil
+				end
+				if org_qs and not qsd and not dst:match('%?') then
+					dst = dst..'?'..org_qs
+				end
+				-- Compare against the full current URI (including query string), so that a
+				-- rule rewriting onto itself still terminates instead of looping on exec
+				local current_uri = request_uri
+				if org_qs then
+					current_uri = current_uri..'?'..org_qs
+				end
+				if current_uri ~= dst then
 					if redirect then
 						-- Perform an external redirect or final HTTP status
 						if redirect > 300 and redirect < 400 then
